@@ -46,8 +46,17 @@ function App() {
         <AuthProvider>
           <SubscriptionProvider>
             <ToastProvider>
-              <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 antialiased">
-                <Routes>
+              <div className="min-h-screen bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#0f0f23] antialiased relative overflow-hidden">
+                {/* Animated background blobs */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="absolute top-0 left-0 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse" />
+                  <div className="absolute bottom-0 right-0 w-96 h-96 bg-pink-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl animate-pulse delay-500" />
+                </div>
+
+                {/* Main content */}
+                <div className="relative z-10">
+                  <Routes>
                   {/* Auth Routes */}
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/signup" element={<SignupPage />} />
@@ -67,6 +76,7 @@ function App() {
                   <Route path="/" element={<Navigate to="/meetings" replace />} />
                   <Route path="*" element={<Navigate to="/meetings" replace />} />
                 </Routes>
+                </div>
               </div>
               <ToastViewport />
             </ToastProvider>

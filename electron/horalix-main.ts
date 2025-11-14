@@ -1,10 +1,10 @@
 /**
  * Horalix Halo - Electron Main Process
  *
- * Simple, clean Electron app for meeting assistant
+ * Beautiful, modern Electron app for meeting assistant
  */
 
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
 
 let mainWindow: BrowserWindow | null = null
@@ -12,19 +12,50 @@ let mainWindow: BrowserWindow | null = null
 const isDev = process.env.NODE_ENV === 'development'
 const VITE_DEV_SERVER_URL = 'http://localhost:5180'
 
+// ============================================================================
+// IPC HANDLERS
+// ============================================================================
+
+// LLM generate handler (mock for now)
+ipcMain.handle('llm:generate', async (_event, prompt: string) => {
+  console.log('[IPC] llm:generate called with prompt:', prompt.substring(0, 50) + '...')
+  // Return a mock response for now
+  return {
+    success: true,
+    response: 'AI response functionality coming soon. The UI is ready and beautiful!',
+  }
+})
+
+// Shell open external (for opening links)
+ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+  const { shell } = require('electron')
+  await shell.openExternal(url)
+  return { success: true }
+})
+
+// ============================================================================
+// WINDOW CREATION
+// ============================================================================
+
 async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 800,
-    minHeight: 600,
+    minWidth: 1000,
+    minHeight: 700,
     webPreferences: {
       preload: path.join(__dirname, 'horalix-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: false, // Keep animations smooth
     },
-    titleBarStyle: 'default',
-    backgroundColor: '#1a1625',
+    // Beautiful modern window styling
+    frame: true,
+    titleBarStyle: 'hiddenInset', // Modern macOS-style title bar
+    backgroundColor: '#0f0f23', // Deep purple-black background
+    transparent: false, // Set to false for better performance, use CSS for transparency
+    vibrancy: 'dark', // macOS vibrancy effect
+    visualEffectState: 'active',
   })
 
   // Load the app
@@ -38,9 +69,14 @@ async function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+
+  console.log('[Horalix Halo] Window created successfully')
 }
 
-// App lifecycle
+// ============================================================================
+// APP LIFECYCLE
+// ============================================================================
+
 app.whenReady().then(async () => {
   await createWindow()
 
@@ -57,4 +93,4 @@ app.on('window-all-closed', () => {
   }
 })
 
-console.log('[Horalix Halo] Electron app started')
+console.log('[Horalix Halo] Electron app started - Modern UI ready! 🚀')

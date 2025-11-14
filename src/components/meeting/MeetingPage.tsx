@@ -144,7 +144,7 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
 
   if (!isActive && !startedAt) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#0f0f23] p-8">
+      <div className="min-h-screen p-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
@@ -198,7 +198,7 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="mt-12 p-6 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl"
+            className="mt-12 p-6 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-purple-500/10"
           >
             <h3 className="text-lg font-semibold text-white mb-4">Before you start:</h3>
             <div className="space-y-3">
@@ -225,7 +225,7 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
   // ============================================================================
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#0f0f23] p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -245,8 +245,11 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
           {/* Left Column: Transcript */}
           <div className="lg:col-span-2 space-y-6">
             {/* Transcript Panel */}
-            <div className="p-6 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl">
-              <h2 className="text-lg font-semibold text-white mb-4">Live Transcript</h2>
+            <div className="p-6 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-purple-500/10">
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                Live Transcript
+              </h2>
               <div className="h-96 overflow-y-auto space-y-3">
                 {transcript.length === 0 ? (
                   <div className="text-center text-gray-500 py-20">
@@ -274,7 +277,7 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
             </div>
 
             {/* Meeting Controls */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-purple-500/10">
               <MeetingControls
                 meetingId={meetingId}
                 transcript={fullTranscriptText}
@@ -297,7 +300,7 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
             )}
 
             {/* Quick Actions */}
-            <div className="p-6 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl">
+            <div className="p-6 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-purple-500/10">
               <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
               <div className="space-y-3">
                 <button className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-left text-sm text-gray-300 transition-all">
@@ -313,7 +316,7 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
             </div>
 
             {/* Meeting Info */}
-            <div className="p-6 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl">
+            <div className="p-6 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-purple-500/10">
               <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">
                 Meeting Details
               </h3>
