@@ -10,6 +10,7 @@ import { useSubscription, useCanStartMeeting } from "../../contexts/Subscription
 import { MeetingControls } from "./MeetingControls"
 import { MeetingTimer } from "./MeetingTimer"
 import { UsageIndicator } from "../subscription/UsageIndicator"
+import { useSpeechRecognition, TranscriptSegment } from "../../hooks/useSpeechRecognition"
 
 // ============================================================================
 // TYPES
@@ -17,13 +18,6 @@ import { UsageIndicator } from "../subscription/UsageIndicator"
 
 interface MeetingPageProps {
   onEndMeeting?: () => void
-}
-
-interface TranscriptSegment {
-  id: string
-  speaker: string
-  text: string
-  timestamp: number
 }
 
 // ============================================================================
@@ -39,6 +33,21 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([])
   const [fullTranscriptText, setFullTranscriptText] = useState("")
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null)
+
+  // Real-time speech recognition
+  const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition({
+    continuous: true,
+    interimResults: true,
+    onSegment: (segment) => {
+      setTranscript((prev) => [...prev, segment])
+      setFullTranscriptText((prev) => prev + " " + segment.text)
+    },
+    onError: (error) => {
+      setTranscriptionError(error)
+      console.error('[MeetingPage] Transcription error:', error)
+    },
+  })
 
   // ============================================================================
   // MEETING CONTROLS
@@ -50,11 +59,24 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
       return
     }
 
+    // Check if speech recognition is supported
+    if (!isSupported) {
+      const proceed = confirm(
+        "Real-time transcription requires Chrome or Edge browser. Would you like to continue with demo mode?"
+      )
+      if (!proceed) return
+    }
+
     setIsActive(true)
     setStartedAt(Date.now())
+    setTranscriptionError(null)
 
-    // TODO: Start real transcription engine
-    // For now, simulate with placeholder
+    // Start real transcription
+    if (isSupported) {
+      startListening()
+      console.log("[MeetingPage] Real transcription started")
+    }
+
     console.log("[MeetingPage] Meeting started:", meetingId)
 
     // Call backend to create meeting record
@@ -76,20 +98,32 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
   }
 
   const handleEndMeeting = async () => {
-    if (!startedAt) return
+    if (!startedAt) {
+      console.error('[MeetingPage] Cannot end meeting: startedAt is null')
+      return
+    }
 
     const duration = Math.floor((Date.now() - startedAt) / 1000 / 60) // minutes
 
     // Confirm before ending
-    if (!confirm(`End this meeting? Duration: ${duration} minute${duration !== 1 ? 's' : ''}`)) {
+    const confirmed = confirm(`End this meeting?\n\nDuration: ${duration} minute${duration !== 1 ? 's' : ''}\nSegments recorded: ${transcript.length}`)
+
+    if (!confirmed) {
+      console.log('[MeetingPage] User cancelled meeting end')
       return
     }
 
+    console.log('[MeetingPage] Ending meeting...')
+
+    // Stop transcription
+    stopListening()
+
+    // Set inactive
     setIsActive(false)
 
     // Call backend to end meeting
     try {
-      await fetch("http://localhost:3001/api/meetings/end", {
+      const response = await fetch("http://localhost:3001/api/meetings/end", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -102,13 +136,27 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
         }),
       })
 
+      if (response.ok) {
+        console.log('[MeetingPage] Meeting ended successfully')
+      } else {
+        console.error('[MeetingPage] Backend error:', await response.text())
+      }
+
       // Refresh subscription to update usage stats
       await refresh()
     } catch (error) {
       console.error("[MeetingPage] Failed to end meeting:", error)
     }
 
-    onEndMeeting?.()
+    // Call callback
+    if (onEndMeeting) {
+      onEndMeeting()
+    }
+
+    // Reset for next meeting
+    setStartedAt(null)
+    setTranscript([])
+    setFullTranscriptText("")
   }
 
   const handleTimeLimit = () => {
@@ -122,13 +170,13 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
   }
 
   // ============================================================================
-  // SIMULATED TRANSCRIPTION (replace with real STT engine)
+  // DEMO MODE FALLBACK (only if speech recognition not supported)
   // ============================================================================
 
   useEffect(() => {
-    if (!isActive) return
+    if (!isActive || isSupported) return
 
-    // Simulate incoming transcript segments with realistic demo content
+    // Demo mode: simulate incoming transcript segments
     const demoTranscripts = [
       "Welcome everyone to today's meeting. Let's get started with the agenda.",
       "I'd like to discuss our Q4 roadmap and key milestones.",
@@ -161,7 +209,7 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
     }, 8000) // New segment every 8 seconds
 
     return () => clearInterval(interval)
-  }, [isActive])
+  }, [isActive, isSupported])
 
   // ============================================================================
   // RENDER: PRE-MEETING STATE
@@ -271,10 +319,29 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
           <div className="lg:col-span-2 space-y-6">
             {/* Transcript Panel */}
             <div className="p-6 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-purple-500/10">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                Live Transcript
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  Live Transcript
+                </div>
+                <div className="text-xs text-gray-400 font-normal">
+                  {isListening ? (
+                    <span className="flex items-center gap-1 text-green-400">
+                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                      Real-time transcription active
+                    </span>
+                  ) : isSupported ? (
+                    <span className="text-yellow-400">Transcription paused</span>
+                  ) : (
+                    <span className="text-gray-500">Demo mode</span>
+                  )}
+                </div>
               </h2>
+              {transcriptionError && (
+                <div className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400">
+                  {transcriptionError}
+                </div>
+              )}
               <div className="h-96 overflow-y-auto space-y-3">
                 {transcript.length === 0 ? (
                   <div className="text-center text-gray-500 py-20">
