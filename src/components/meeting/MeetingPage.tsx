@@ -79,6 +79,12 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
     if (!startedAt) return
 
     const duration = Math.floor((Date.now() - startedAt) / 1000 / 60) // minutes
+
+    // Confirm before ending
+    if (!confirm(`End this meeting? Duration: ${duration} minute${duration !== 1 ? 's' : ''}`)) {
+      return
+    }
+
     setIsActive(false)
 
     // Call backend to end meeting
@@ -122,18 +128,37 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
   useEffect(() => {
     if (!isActive) return
 
-    // Simulate incoming transcript segments
+    // Simulate incoming transcript segments with realistic demo content
+    const demoTranscripts = [
+      "Welcome everyone to today's meeting. Let's get started with the agenda.",
+      "I'd like to discuss our Q4 roadmap and key milestones.",
+      "That's a great point. We should definitely consider the timeline constraints.",
+      "What are your thoughts on the budget allocation for this project?",
+      "I agree. Let's make sure we have all stakeholders aligned before proceeding.",
+      "Can we schedule a follow-up to review the detailed implementation plan?",
+      "Yes, I'll send out a calendar invite for next Tuesday.",
+      "Perfect. Let's make sure everyone has access to the shared documents.",
+      "Any other questions or concerns before we wrap up?",
+      "Great discussion today. Thanks everyone for your input!",
+    ]
+
+    let transcriptIndex = 0
     const interval = setInterval(() => {
+      if (transcriptIndex >= demoTranscripts.length) {
+        transcriptIndex = 0 // Loop back for demo
+      }
+
       const newSegment: TranscriptSegment = {
         id: `segment_${Date.now()}`,
-        speaker: Math.random() > 0.5 ? "You" : "Other",
-        text: "Sample transcript text here...",
+        speaker: transcriptIndex % 3 === 0 ? "You" : transcriptIndex % 3 === 1 ? "Sarah" : "Mike",
+        text: demoTranscripts[transcriptIndex],
         timestamp: Date.now(),
       }
 
+      transcriptIndex++
       setTranscript((prev) => [...prev, newSegment])
       setFullTranscriptText((prev) => prev + " " + newSegment.text)
-    }, 5000)
+    }, 8000) // New segment every 8 seconds
 
     return () => clearInterval(interval)
   }, [isActive])

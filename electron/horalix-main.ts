@@ -16,14 +16,32 @@ const VITE_DEV_SERVER_URL = 'http://localhost:5180'
 // IPC HANDLERS
 // ============================================================================
 
-// LLM generate handler (mock for now)
-ipcMain.handle('llm:generate', async (_event, ...args: any[]) => {
-  const prompt = typeof args[0] === 'string' ? args[0] : JSON.stringify(args[0])
-  console.log('[IPC] llm:generate called with prompt:', prompt.substring(0, 50) + '...')
-  // Return a mock response for now
+// LLM generate handler (mock for now - returns realistic responses)
+ipcMain.handle('llm:generate', async (_event, request: any) => {
+  console.log('[IPC] llm:generate called with model:', request?.modelId || 'unknown')
+
+  // Extract the user prompt from messages
+  const userMessage = request?.messages?.find((m: any) => m.role === 'user')
+  const userPrompt = userMessage?.content || ''
+
+  // Generate contextual mock responses based on the prompt
+  let mockResponse = ''
+
+  if (userPrompt.includes('suggest') || userPrompt.includes('answer')) {
+    mockResponse = '✨ Great question! Based on the conversation, I suggest focusing on the key decision points. Here are three actionable recommendations: 1) Clarify the timeline, 2) Confirm budget allocation, 3) Identify next steps and responsibilities.'
+  } else if (userPrompt.includes('summarize') || userPrompt.includes('recap')) {
+    mockResponse = '📋 **Meeting Summary:**\n\n**Key Points:**\n- Discussion about project timeline and deliverables\n- Budget considerations and resource allocation\n- Action items identified for next steps\n\n**Decisions Made:**\n- Project kickoff scheduled for next week\n- Budget approved pending final review\n\n**Next Steps:**\n- Team leads to prepare detailed project plan\n- Schedule follow-up meeting'
+  } else if (userPrompt.includes('fact') || userPrompt.includes('verify')) {
+    mockResponse = '✓ Fact check complete! The information discussed appears consistent with current industry standards. However, I recommend verifying specific numbers with official sources before final decision-making.'
+  } else {
+    mockResponse = '💡 Here\'s my analysis: The conversation is progressing well. Consider asking for clarification on timelines and ensuring all stakeholders are aligned before moving forward.'
+  }
+
+  // Return in the format expected by the frontend
   return {
     success: true,
-    response: 'AI response functionality coming soon. The UI is ready and beautiful!',
+    content: mockResponse,
+    model: request?.modelId || 'mock-ai',
   }
 })
 
