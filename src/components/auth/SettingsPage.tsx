@@ -42,7 +42,7 @@ interface License {
 
 export function SettingsPage() {
   const { user, token, logout, refreshUser } = useAuth()
-  const { subscription, refreshSubscription } = useSubscription()
+  const { planId, planConfig, refresh } = useSubscription()
   const [activeTab, setActiveTab] = useState<'account' | 'subscription' | 'biometric' | 'knowledge' | 'security'>(
     'account'
   )
@@ -283,7 +283,7 @@ export function SettingsPage() {
         setLicenseKey('')
         // Refresh user data to get updated plan
         await refreshUser()
-        await refreshSubscription()
+        await refresh()
         // Reload licenses
         loadMyLicenses()
       } else {
@@ -400,19 +400,19 @@ export function SettingsPage() {
             <div className="space-y-8">
               <div>
                 <h2 className="text-2xl font-bold text-white mb-4">Current Subscription</h2>
-                {subscription ? (
+                {planConfig ? (
                   <div className="space-y-3">
                     <div className="flex justify-between py-3 border-b border-gray-700">
                       <span className="text-gray-400">Plan</span>
-                      <span className="text-white font-semibold uppercase">{subscription.planId}</span>
+                      <span className="text-white font-semibold uppercase">{planId}</span>
                     </div>
                     <div className="flex justify-between py-3 border-b border-gray-700">
                       <span className="text-gray-400">Status</span>
-                      <span className="text-green-400 font-semibold uppercase">{subscription.status}</span>
+                      <span className="text-green-400 font-semibold uppercase">Active</span>
                     </div>
                     <div className="flex justify-between py-3 border-b border-gray-700">
-                      <span className="text-gray-400">Billing</span>
-                      <span className="text-white">{subscription.billingInterval}</span>
+                      <span className="text-gray-400">Plan Name</span>
+                      <span className="text-white">{planConfig.marketing.name}</span>
                     </div>
                   </div>
                 ) : (

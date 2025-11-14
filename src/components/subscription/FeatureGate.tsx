@@ -35,7 +35,7 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({ feature }) => {
     // Determine which plan to upgrade to based on feature
     const targetPlan = planId === "free" ? "plus" : "ultra"
     try {
-      await startCheckout(targetPlan, "month")
+      await startCheckout(targetPlan, "monthly")
     } catch (error) {
       console.error("[FeatureGate] Upgrade error:", error)
     }
@@ -115,10 +115,15 @@ function getFeatureLabel(feature: keyof PlanConfig["features"]): string {
     basicRecap: "meeting recaps",
     factCheckButton: "fact checking",
     advancedRecaps: "advanced AI recaps",
+    customTemplates: "custom templates",
+    exportRecaps: "export recaps",
     multiAiEngine: "multi-AI engine selection",
     customKnowledge: "custom knowledge uploads",
+    unlimitedTemplates: "unlimited templates",
+    priorityProcessing: "priority processing",
     maxMeetingsPerWeek: "unlimited meetings",
     maxMinutesPerMeeting: "longer meetings",
+    maxMinutesPerMonth: "more minutes per month",
   }
 
   return labels[feature] || "this feature"

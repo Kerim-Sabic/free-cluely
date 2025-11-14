@@ -23,7 +23,7 @@ interface LiveTranscriptionProps {
   isRecording: boolean
 }
 
-export function LiveTranscription({ meetingId, isRecording }: LiveTranscriptionProps) {
+export function LiveTranscription({ meetingId: _meetingId, isRecording }: LiveTranscriptionProps) {
   const [segments, setSegments] = useState<TranscriptSegment[]>([])
   const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set())
   const [waveformData, setWaveformData] = useState<number[]>(Array(40).fill(0))
@@ -141,7 +141,7 @@ export function LiveTranscription({ meetingId, isRecording }: LiveTranscriptionP
       {/* Transcript Segments */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-black/20">
         <AnimatePresence>
-          {segments.map((segment, index) => (
+          {segments.map((segment) => (
             <motion.div
               key={segment.id}
               initial={{ opacity: 0, x: -20 }}

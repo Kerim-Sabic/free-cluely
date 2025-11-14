@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5180,
-    strictPort: true,
+    strictPort: false, // Allow auto-increment if port is busy
+    host: true, // Listen on all addresses
   },
   resolve: {
     alias: {
@@ -21,5 +22,8 @@ export default defineConfig({
         main: path.resolve(__dirname, 'index.html'),
       },
     },
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query'],
   },
 })

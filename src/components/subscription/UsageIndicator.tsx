@@ -32,7 +32,7 @@ export const UsageIndicator: React.FC<UsageIndicatorProps> = ({
   const handleUpgrade = async () => {
     const targetPlan = planId === "free" ? "plus" : "ultra"
     try {
-      await startCheckout(targetPlan, "month")
+      await startCheckout(targetPlan, "monthly")
     } catch (error) {
       console.error("[UsageIndicator] Upgrade error:", error)
     }

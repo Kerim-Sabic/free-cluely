@@ -18,8 +18,8 @@ import type { PlanId } from "../../../shared/plans"
 interface PricingCardProps {
   planId: PlanId
   isCurrentPlan: boolean
-  billingInterval: "month" | "year"
-  onSelectPlan: (planId: PlanId, interval: "month" | "year") => Promise<void>
+  billingInterval: "monthly" | "yearly"
+  onSelectPlan: (planId: PlanId, interval: "monthly" | "yearly") => Promise<void>
   isLoading?: boolean
 }
 
@@ -35,7 +35,7 @@ const PricingCard: React.FC<PricingCardProps> = ({
   isLoading,
 }) => {
   const plan = PLANS[planId]
-  const pricing = plan.pricing[billingInterval]
+  const pricing = plan.pricing
 
   const getCardGradient = () => {
     if (planId === "ultra") return "from-yellow-500/20 to-orange-500/20"
@@ -104,18 +104,15 @@ const PricingCard: React.FC<PricingCardProps> = ({
               <div className="flex items-baseline justify-center gap-1 mb-2">
                 <span className="text-2xl text-gray-400">$</span>
                 <span className="text-5xl font-bold text-white">
-                  {pricing.price}
+                  {billingInterval === "monthly" ? pricing.monthly : pricing.yearlyMonthlyEquivalent}
                 </span>
-                <span className="text-gray-400">/{billingInterval === "month" ? "mo" : "yr"}</span>
+                <span className="text-gray-400">/{billingInterval === "monthly" ? "mo" : "yr"}</span>
               </div>
-              {billingInterval === "year" && (
+              {billingInterval === "yearly" && (
                 <div className="text-sm text-green-400 font-medium">
-                  Save ${(pricing.price / 12).toFixed(0)}/month
+                  {pricing.yearlySavings}
                 </div>
               )}
-              <div className="text-xs text-gray-500 mt-1">
-                {pricing.description}
-              </div>
             </div>
           )}
         </div>
@@ -187,10 +184,10 @@ const PricingCard: React.FC<PricingCardProps> = ({
 export const PricingPage: React.FC = () => {
   const { planId } = usePlan()
   const { startCheckout } = useSubscription()
-  const [billingInterval, setBillingInterval] = useState<"month" | "year">("month")
+  const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly")
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSelectPlan = async (targetPlan: PlanId, interval: "month" | "year") => {
+  const handleSelectPlan = async (targetPlan: PlanId, interval: "monthly" | "yearly") => {
     if (targetPlan === "free") return
 
     setIsLoading(true)
@@ -234,9 +231,9 @@ export const PricingPage: React.FC = () => {
           className="flex items-center justify-center gap-4 mb-12"
         >
           <button
-            onClick={() => setBillingInterval("month")}
+            onClick={() => setBillingInterval("monthly")}
             className={`px-6 py-2 rounded-lg font-medium transition-all ${
-              billingInterval === "month"
+              billingInterval === "monthly"
                 ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20"
                 : "bg-white/5 text-gray-400 hover:bg-white/10"
             }`}
@@ -244,9 +241,9 @@ export const PricingPage: React.FC = () => {
             Monthly
           </button>
           <button
-            onClick={() => setBillingInterval("year")}
+            onClick={() => setBillingInterval("yearly")}
             className={`px-6 py-2 rounded-lg font-medium transition-all relative ${
-              billingInterval === "year"
+              billingInterval === "yearly"
                 ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20"
                 : "bg-white/5 text-gray-400 hover:bg-white/10"
             }`}

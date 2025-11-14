@@ -46,7 +46,7 @@ function getWarningLevel(percentUsed: number): "safe" | "warning" | "danger" {
 // ============================================================================
 
 export const MeetingTimer: React.FC<MeetingTimerProps> = ({
-  meetingId,
+  meetingId: _meetingId,
   startedAt,
   onTimeLimit,
   onWarning,

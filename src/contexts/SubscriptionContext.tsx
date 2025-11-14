@@ -41,7 +41,7 @@ export interface SubscriptionContextType extends SubscriptionState {
   getRemainingMinutes: () => number
 
   // Upgrade flow
-  startCheckout: (targetPlan: PlanId, interval: "month" | "year") => Promise<void>
+  startCheckout: (targetPlan: PlanId, interval: "monthly" | "yearly") => Promise<void>
 }
 
 // ============================================================================
@@ -108,13 +108,14 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       const data = await response.json()
 
       // Update state with server data
+      const planId = data.planId as PlanId
       setState({
-        planId: data.planId,
-        planConfig: PLANS[data.planId],
+        planId,
+        planConfig: PLANS[planId],
         subscriptionStatus: data.status || "active",
         minutesUsedThisPeriod: data.minutesUsedThisPeriod || 0,
-        minutesLimit: data.minutesLimit || PLANS[data.planId].features.maxMinutesPerMeeting,
-        maxMinutesPerMeeting: PLANS[data.planId].features.maxMinutesPerMeeting,
+        minutesLimit: data.minutesLimit || PLANS[planId].features.maxMinutesPerMeeting,
+        maxMinutesPerMeeting: PLANS[planId].features.maxMinutesPerMeeting,
         renewsAt: data.renewsAt,
         trialEndsAt: data.trialEndsAt,
         isLoading: false,
@@ -203,7 +204,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   // ============================================================================
 
   const startCheckout = useCallback(
-    async (targetPlan: PlanId, interval: "month" | "year") => {
+    async (targetPlan: PlanId, interval: "monthly" | "yearly") => {
       try {
         console.log(`[SubscriptionContext] Starting checkout for ${targetPlan}/${interval}`)
 

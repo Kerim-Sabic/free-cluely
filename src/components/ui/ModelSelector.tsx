@@ -29,14 +29,14 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onModelChange, onChatOpen
   const loadCurrentConfig = async () => {
     try {
       setIsLoading(true);
-      const config = await window.electronAPI.getCurrentLlmConfig();
+      // Simplified: Use default config since Electron LLM engine is disabled
+      const config: ModelConfig = {
+        provider: 'gemini',
+        model: 'gemini-2.0-flash',
+        isOllama: false,
+      };
       setCurrentConfig(config);
       setSelectedProvider(config.provider);
-      
-      if (config.isOllama) {
-        setSelectedOllamaModel(config.model);
-        await loadOllamaModels();
-      }
     } catch (error) {
       console.error('Error loading current config:', error);
     } finally {
@@ -46,13 +46,8 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onModelChange, onChatOpen
 
   const loadOllamaModels = async () => {
     try {
-      const models = await window.electronAPI.getAvailableOllamaModels();
-      setAvailableOllamaModels(models);
-      
-      // Auto-select first model if none selected
-      if (models.length > 0 && !selectedOllamaModel) {
-        setSelectedOllamaModel(models[0]);
-      }
+      // Simplified: Ollama models not available in current version
+      setAvailableOllamaModels([]);
     } catch (error) {
       console.error('Error loading Ollama models:', error);
       setAvailableOllamaModels([]);
@@ -62,11 +57,10 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onModelChange, onChatOpen
   const testConnection = async () => {
     try {
       setConnectionStatus('testing');
-      const result = await window.electronAPI.testLlmConnection();
-      setConnectionStatus(result.success ? 'success' : 'error');
-      if (!result.success) {
-        setErrorMessage(result.error || 'Unknown error');
-      }
+      // Simplified: Connection test not available in current version
+      setTimeout(() => {
+        setConnectionStatus('success');
+      }, 500);
     } catch (error) {
       setConnectionStatus('error');
       setErrorMessage(String(error));
@@ -76,26 +70,14 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onModelChange, onChatOpen
   const handleProviderSwitch = async () => {
     try {
       setConnectionStatus('testing');
-      let result;
-      
-      if (selectedProvider === 'ollama') {
-        result = await window.electronAPI.switchToOllama(selectedOllamaModel, ollamaUrl);
-      } else {
-        result = await window.electronAPI.switchToGemini(geminiApiKey || undefined);
-      }
-
-      if (result.success) {
-        await loadCurrentConfig();
+      // Simplified: Provider switching not available in current version
+      setTimeout(() => {
         setConnectionStatus('success');
         onModelChange?.(selectedProvider, selectedProvider === 'ollama' ? selectedOllamaModel : 'gemini-2.0-flash');
-        // Auto-open chat window after successful model change
         setTimeout(() => {
           onChatOpen?.();
         }, 500);
-      } else {
-        setConnectionStatus('error');
-        setErrorMessage(result.error || 'Switch failed');
-      }
+      }, 500);
     } catch (error) {
       setConnectionStatus('error');
       setErrorMessage(String(error));

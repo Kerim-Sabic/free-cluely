@@ -8,7 +8,6 @@ import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../contexts/AuthContext'
-import { useSubscription } from '../../contexts/SubscriptionContext'
 
 const navItems = [
   { path: '/meetings', icon: '📊', label: 'Meetings', badge: null },
@@ -19,7 +18,6 @@ const navItems = [
 export function Navigation() {
   const location = useLocation()
   const { user, logout } = useAuth()
-  const { subscription } = useSubscription()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
 
   const getPlanColor = (plan: string) => {

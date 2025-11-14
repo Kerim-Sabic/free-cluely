@@ -84,7 +84,7 @@ const ACTION_BUTTONS: ActionButton[] = [
 // ============================================================================
 
 export const MeetingControls: React.FC<MeetingControlsProps> = ({
-  meetingId,
+  meetingId: _meetingId,
   transcript = "",
   onSuggestion,
   onRecap,
