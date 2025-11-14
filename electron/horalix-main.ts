@@ -54,7 +54,7 @@ async function createWindow() {
     titleBarStyle: 'hiddenInset', // Modern macOS-style title bar
     backgroundColor: '#0f0f23', // Deep purple-black background
     transparent: false, // Set to false for better performance, use CSS for transparency
-    vibrancy: 'dark', // macOS vibrancy effect
+    vibrancy: 'under-window', // macOS vibrancy effect (dark background)
     visualEffectState: 'active',
   })
 
