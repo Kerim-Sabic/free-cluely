@@ -17,7 +17,8 @@ const VITE_DEV_SERVER_URL = 'http://localhost:5180'
 // ============================================================================
 
 // LLM generate handler (mock for now)
-ipcMain.handle('llm:generate', async (_event, prompt: string) => {
+ipcMain.handle('llm:generate', async (_event, ...args: any[]) => {
+  const prompt = typeof args[0] === 'string' ? args[0] : JSON.stringify(args[0])
   console.log('[IPC] llm:generate called with prompt:', prompt.substring(0, 50) + '...')
   // Return a mock response for now
   return {
@@ -61,7 +62,7 @@ async function createWindow() {
   // Load the app
   if (isDev) {
     await mainWindow.loadURL(VITE_DEV_SERVER_URL)
-    mainWindow.webContents.openDevTools()
+    // Don't auto-open DevTools - user can open with F12 or Ctrl+Shift+I if needed
   } else {
     await mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
