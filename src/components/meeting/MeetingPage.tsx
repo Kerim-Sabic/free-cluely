@@ -11,6 +11,7 @@ import { MeetingControls } from "./MeetingControls"
 import { MeetingTimer } from "./MeetingTimer"
 import { UsageIndicator } from "../subscription/UsageIndicator"
 import { useSpeechRecognition, TranscriptSegment } from "../../hooks/useSpeechRecognition"
+import { ConfirmDialog } from "../ui/ConfirmDialog"
 
 // ============================================================================
 // TYPES
@@ -35,6 +36,19 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
   const [fullTranscriptText, setFullTranscriptText] = useState("")
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null)
 
+  // Dialog states
+  const [showBrowserWarning, setShowBrowserWarning] = useState(false)
+  const [showEndMeetingConfirm, setShowEndMeetingConfirm] = useState(false)
+  const [meetingDuration, setMeetingDuration] = useState(0)
+
+  // Quick Actions states
+  const [notes, setNotes] = useState<Array<{ timestamp: number; text: string; id: string }>>([])
+  const [bookmarks, setBookmarks] = useState<Array<{ timestamp: number; id: string }>>([])
+  const [showNoteDialog, setShowNoteDialog] = useState(false)
+  const [showEmailDraft, setShowEmailDraft] = useState(false)
+  const [noteText, setNoteText] = useState("")
+  const [emailDraft, setEmailDraft] = useState("")
+
   // Real-time speech recognition
   const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition({
     continuous: true,
@@ -55,16 +69,31 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
 
   const handleStartMeeting = async () => {
     if (!canStart.allowed) {
-      alert(canStart.reason || "Cannot start meeting")
+      // Will be replaced with a proper dialog later if needed
+      console.error("[MeetingPage] Cannot start meeting:", canStart.reason)
       return
     }
 
     // Check if speech recognition is supported
     if (!isSupported) {
-      const proceed = confirm(
-        "Real-time transcription requires Chrome or Edge browser. Would you like to continue with demo mode?"
-      )
-      if (!proceed) return
+      setShowBrowserWarning(true)
+      return
+    }
+
+    startMeeting()
+  }
+
+  const startMeeting = async () => {
+    // Request microphone permission explicitly
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      console.log("[MeetingPage] Microphone access granted")
+      // Stop the test stream, we'll use Speech API instead
+      stream.getTracks().forEach(track => track.stop())
+    } catch (error) {
+      console.error("[MeetingPage] Microphone access denied:", error)
+      setTranscriptionError("Microphone access denied. Please allow microphone access to use transcription.")
+      return
     }
 
     setIsActive(true)
@@ -97,22 +126,18 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
     }
   }
 
-  const handleEndMeeting = async () => {
+  const handleEndMeeting = () => {
     if (!startedAt) {
       console.error('[MeetingPage] Cannot end meeting: startedAt is null')
       return
     }
 
     const duration = Math.floor((Date.now() - startedAt) / 1000 / 60) // minutes
+    setMeetingDuration(duration)
+    setShowEndMeetingConfirm(true)
+  }
 
-    // Confirm before ending
-    const confirmed = confirm(`End this meeting?\n\nDuration: ${duration} minute${duration !== 1 ? 's' : ''}\nSegments recorded: ${transcript.length}`)
-
-    if (!confirmed) {
-      console.log('[MeetingPage] User cancelled meeting end')
-      return
-    }
-
+  const confirmEndMeeting = async () => {
     console.log('[MeetingPage] Ending meeting...')
 
     // Stop transcription
@@ -132,7 +157,7 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
         body: JSON.stringify({
           meetingId,
           endedAt: Date.now(),
-          durationMinutes: duration,
+          durationMinutes: meetingDuration,
         }),
       })
 
@@ -157,16 +182,91 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
     setStartedAt(null)
     setTranscript([])
     setFullTranscriptText("")
+    setShowEndMeetingConfirm(false)
   }
 
   const handleTimeLimit = () => {
-    alert(`Meeting time limit reached (${planConfig.features.maxMinutesPerMeeting} minutes). Upgrade for longer meetings!`)
-    handleEndMeeting()
+    // Time limit reached - force end meeting
+    console.log('[MeetingPage] Time limit reached, ending meeting')
+    if (startedAt) {
+      const duration = Math.floor((Date.now() - startedAt) / 1000 / 60)
+      setMeetingDuration(duration)
+      confirmEndMeeting()
+    }
   }
 
   const handleWarning = (minutesRemaining: number) => {
     // TODO: Show toast notification
     console.log(`[MeetingPage] Warning: ${minutesRemaining} minutes remaining`)
+  }
+
+  // ============================================================================
+  // QUICK ACTIONS
+  // ============================================================================
+
+  const handleTakeNote = () => {
+    setShowNoteDialog(true)
+  }
+
+  const saveNote = () => {
+    if (!noteText.trim()) return
+
+    const newNote = {
+      id: `note_${Date.now()}`,
+      timestamp: Date.now(),
+      text: noteText.trim(),
+    }
+
+    setNotes((prev) => [...prev, newNote])
+    setNoteText("")
+    setShowNoteDialog(false)
+    console.log("[MeetingPage] Note saved:", newNote)
+  }
+
+  const handleBookmark = () => {
+    const newBookmark = {
+      id: `bookmark_${Date.now()}`,
+      timestamp: Date.now(),
+    }
+
+    setBookmarks((prev) => [...prev, newBookmark])
+    console.log("[MeetingPage] Bookmark created:", newBookmark)
+
+    // Show brief confirmation (could be a toast in the future)
+    const currentSegment = transcript[transcript.length - 1]
+    console.log("[MeetingPage] Bookmarked at:", currentSegment?.text || "current moment")
+  }
+
+  const handleDraftEmail = async () => {
+    console.log("[MeetingPage] Generating follow-up email draft...")
+
+    // Generate email using AI
+    try {
+      const response = await window.electronAPI.invoke('llm:generate', {
+        modelId: 'meeting-email-drafter',
+        messages: [
+          {
+            role: 'user',
+            content: `Based on this meeting transcript, draft a professional follow-up email:\n\n${fullTranscriptText}\n\nInclude: summary of key points, action items, and next steps.`,
+          },
+        ],
+      })
+
+      if (response.success) {
+        setEmailDraft(response.content)
+        setShowEmailDraft(true)
+      } else {
+        console.error("[MeetingPage] Failed to generate email draft")
+      }
+    } catch (error) {
+      console.error("[MeetingPage] Error generating email:", error)
+    }
+  }
+
+  const copyEmailToClipboard = () => {
+    navigator.clipboard.writeText(emailDraft)
+    console.log("[MeetingPage] Email draft copied to clipboard")
+    // TODO: Show toast confirmation
   }
 
   // ============================================================================
@@ -395,16 +495,41 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
             <div className="p-6 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-purple-500/10">
               <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-left text-sm text-gray-300 transition-all">
+                <button
+                  onClick={handleTakeNote}
+                  className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-left text-sm text-gray-300 transition-all"
+                >
                   📝 Take Note
                 </button>
-                <button className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-left text-sm text-gray-300 transition-all">
+                <button
+                  onClick={handleBookmark}
+                  className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-left text-sm text-gray-300 transition-all"
+                >
                   🔖 Bookmark This Moment
                 </button>
-                <button className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-left text-sm text-gray-300 transition-all">
+                <button
+                  onClick={handleDraftEmail}
+                  className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-left text-sm text-gray-300 transition-all"
+                >
                   📧 Draft Follow-up Email
                 </button>
               </div>
+
+              {/* Notes and Bookmarks Display */}
+              {(notes.length > 0 || bookmarks.length > 0) && (
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  {bookmarks.length > 0 && (
+                    <div className="mb-3">
+                      <div className="text-xs text-gray-400 mb-2">Bookmarks: {bookmarks.length}</div>
+                    </div>
+                  )}
+                  {notes.length > 0 && (
+                    <div>
+                      <div className="text-xs text-gray-400 mb-2">Notes: {notes.length}</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Meeting Info */}
@@ -429,6 +554,103 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
             </div>
           </div>
         </div>
+
+        {/* Confirmation Dialogs */}
+        <ConfirmDialog
+          isOpen={showBrowserWarning}
+          title="Browser Compatibility"
+          message="Real-time transcription requires Chrome or Edge browser. Would you like to continue with demo mode?"
+          confirmText="Continue with Demo"
+          cancelText="Cancel"
+          type="warning"
+          onConfirm={() => {
+            setShowBrowserWarning(false)
+            startMeeting()
+          }}
+          onCancel={() => setShowBrowserWarning(false)}
+        />
+
+        <ConfirmDialog
+          isOpen={showEndMeetingConfirm}
+          title="End Meeting"
+          message={`Are you sure you want to end this meeting?\n\nDuration: ${meetingDuration} minute${meetingDuration !== 1 ? 's' : ''}\nSegments recorded: ${transcript.length}`}
+          confirmText="End Meeting"
+          cancelText="Continue Meeting"
+          type="warning"
+          onConfirm={confirmEndMeeting}
+          onCancel={() => setShowEndMeetingConfirm(false)}
+        />
+
+        {/* Take Note Dialog */}
+        {showNoteDialog && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowNoteDialog(false)}
+            />
+            <div className="relative z-10 w-full max-w-md mx-4">
+              <div className="p-6 bg-gradient-to-br from-purple-500/20 to-pink-600/20 backdrop-blur-xl border border-purple-500/30 rounded-2xl shadow-2xl">
+                <h3 className="text-xl font-bold text-white mb-3">Take a Note</h3>
+                <textarea
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="What would you like to remember?"
+                  className="w-full h-32 px-4 py-3 bg-black/30 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 resize-none"
+                  autoFocus
+                />
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => setShowNoteDialog(false)}
+                    className="flex-1 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg font-medium transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveNote}
+                    disabled={!noteText.trim()}
+                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white rounded-lg font-medium transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save Note
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Email Draft Dialog */}
+        {showEmailDraft && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowEmailDraft(false)}
+            />
+            <div className="relative z-10 w-full max-w-2xl mx-4">
+              <div className="p-6 bg-gradient-to-br from-blue-500/20 to-purple-600/20 backdrop-blur-xl border border-blue-500/30 rounded-2xl shadow-2xl">
+                <h3 className="text-xl font-bold text-white mb-3">Follow-up Email Draft</h3>
+                <div className="bg-black/30 border border-white/20 rounded-lg p-4 max-h-96 overflow-y-auto">
+                  <pre className="text-gray-300 whitespace-pre-wrap font-sans text-sm">
+                    {emailDraft}
+                  </pre>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => setShowEmailDraft(false)}
+                    className="flex-1 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg font-medium transition-all"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={copyEmailToClipboard}
+                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg font-medium transition-all shadow-lg"
+                  >
+                    Copy to Clipboard
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

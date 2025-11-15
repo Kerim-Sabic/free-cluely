@@ -84,6 +84,26 @@ ipcMain.handle('shell:openExternal', async (_event, url: string) => {
   return { success: true }
 })
 
+// Window controls
+ipcMain.handle('window:minimize', async () => {
+  mainWindow?.minimize()
+  return { success: true }
+})
+
+ipcMain.handle('window:maximize', async () => {
+  if (mainWindow?.isMaximized()) {
+    mainWindow.unmaximize()
+  } else {
+    mainWindow?.maximize()
+  }
+  return { success: true }
+})
+
+ipcMain.handle('window:close', async () => {
+  mainWindow?.close()
+  return { success: true }
+})
+
 // ============================================================================
 // WINDOW CREATION
 // ============================================================================
@@ -103,14 +123,14 @@ async function createWindow() {
       nodeIntegration: false,
       backgroundThrottling: false, // Keep animations smooth
     },
-    // Beautiful modern window styling
-    frame: true,
-    titleBarStyle: 'hiddenInset', // Modern macOS-style title bar
-    backgroundColor: '#0f0f23', // Deep purple-black background
-    transparent: false, // Set to false for better performance, use CSS for transparency
-    vibrancy: 'under-window', // macOS vibrancy effect (dark background)
+    // Modern frameless transparent window like Cluely
+    frame: false, // Frameless for custom title bar
+    transparent: true, // Enable transparency
+    backgroundColor: '#00000000', // Fully transparent background
+    vibrancy: 'under-window', // macOS vibrancy effect
     visualEffectState: 'active',
     show: false, // Don't show until ready
+    titleBarStyle: 'hidden', // Hide default title bar
   })
 
   // Show window when ready to prevent flash

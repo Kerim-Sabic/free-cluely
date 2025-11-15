@@ -11,6 +11,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { SubscriptionProvider } from './contexts/SubscriptionContext'
 import { ToastProvider } from './components/ui/toast'
 import { ToastViewport } from '@radix-ui/react-toast'
+import { TitleBar } from './components/ui/TitleBar'
 
 // Auth Pages
 import { LoginPage } from './components/auth/LoginPage'
@@ -46,7 +47,10 @@ function App() {
         <AuthProvider>
           <SubscriptionProvider>
             <ToastProvider>
-              <div className="min-h-screen bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#0f0f23] antialiased relative overflow-hidden">
+              {/* Custom title bar for frameless window */}
+              <TitleBar />
+
+              <div className="min-h-screen bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#0f0f23] antialiased relative overflow-hidden pt-12">
                 {/* Animated background blobs */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                   <div className="absolute top-0 left-0 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse" />
