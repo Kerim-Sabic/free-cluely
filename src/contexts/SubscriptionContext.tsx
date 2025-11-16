@@ -9,6 +9,10 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import type { PlanId, PlanConfig } from "../../shared/plans"
 import { PLANS } from "../../shared/plans"
 import { useAuth } from "./AuthContext"
+import { api } from "@/lib/api"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger('SubscriptionContext')
 
 // ============================================================================
 // TYPES
@@ -45,11 +49,39 @@ export interface SubscriptionContextType extends SubscriptionState {
   startCheckout: (targetPlan: PlanId, interval: "month" | "year") => Promise<void>
 }
 
+interface SubscriptionApiResponse {
+  planId: PlanId
+  status: "active" | "cancelled" | "expired" | "trial"
+  minutesUsedThisPeriod: number
+  minutesLimit: number
+  renewsAt?: number
+  trialEndsAt?: number
+}
+
+interface CheckoutApiResponse {
+  checkoutUrl: string
+}
+
 // ============================================================================
 // CONTEXT
 // ============================================================================
 
 const SubscriptionContext = createContext<SubscriptionContextType | null>(null)
+
+// ============================================================================
+// DEFAULT STATE
+// ============================================================================
+
+const DEFAULT_FREE_STATE: SubscriptionState = {
+  planId: "free",
+  planConfig: PLANS.free,
+  subscriptionStatus: "trial",
+  minutesUsedThisPeriod: 0,
+  minutesLimit: 20,
+  maxMinutesPerMeeting: 20,
+  isLoading: false,
+  error: null,
+}
 
 // ============================================================================
 // PROVIDER
@@ -61,14 +93,8 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   const { token } = useAuth()
 
   const [state, setState] = useState<SubscriptionState>({
-    planId: "free",
-    planConfig: PLANS.free,
-    subscriptionStatus: "trial",
-    minutesUsedThisPeriod: 0,
-    minutesLimit: 20, // Free tier: 20 min max per meeting
-    maxMinutesPerMeeting: 20,
+    ...DEFAULT_FREE_STATE,
     isLoading: true,
-    error: null,
   })
 
   // ============================================================================
@@ -79,61 +105,46 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }))
 
-      // Call backend API to get subscription data
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      }
+      logger.debug('Fetching subscription data')
 
-      // Add auth token if available
-      if (token) {
-        headers.Authorization = `Bearer ${token}`
-      }
+      const data = await api.get<SubscriptionApiResponse>(
+        '/api/subscription/me',
+        token
+      )
 
-      const response = await fetch("http://localhost:3001/api/subscription/me", {
-        method: "GET",
-        headers,
-      })
+      const planConfig = PLANS[data.planId]
 
-      if (!response.ok) {
-        // If 401, user not authenticated - default to free tier
-        if (response.status === 401) {
-          setState({
-            planId: "free",
-            planConfig: PLANS.free,
-            subscriptionStatus: "trial",
-            minutesUsedThisPeriod: 0,
-            minutesLimit: 20,
-            maxMinutesPerMeeting: 20,
-            isLoading: false,
-            error: null,
-          })
-          return
-        }
-
-        throw new Error(`Subscription fetch failed: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-
-      // Update state with server data
       setState({
         planId: data.planId,
-        planConfig: PLANS[data.planId],
+        planConfig,
         subscriptionStatus: data.status || "active",
         minutesUsedThisPeriod: data.minutesUsedThisPeriod || 0,
-        minutesLimit: data.minutesLimit || PLANS[data.planId].features.maxMinutesPerMeeting,
-        maxMinutesPerMeeting: PLANS[data.planId].features.maxMinutesPerMeeting,
+        minutesLimit: data.minutesLimit || planConfig.features.maxMinutesPerMeeting,
+        maxMinutesPerMeeting: planConfig.features.maxMinutesPerMeeting,
         renewsAt: data.renewsAt,
         trialEndsAt: data.trialEndsAt,
         isLoading: false,
         error: null,
       })
-    } catch (error) {
-      console.error("[SubscriptionContext] Failed to fetch subscription:", error)
+
+      logger.info('Subscription data loaded', {
+        planId: data.planId,
+        status: data.status,
+        minutesUsed: data.minutesUsedThisPeriod,
+      })
+    } catch (error: any) {
+      // If 401 Unauthorized, user not authenticated - default to free tier
+      if (error.status === 401) {
+        logger.debug('User not authenticated, defaulting to free tier')
+        setState(DEFAULT_FREE_STATE)
+        return
+      }
+
+      logger.error('Failed to fetch subscription', error)
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : "Failed to load subscription",
       }))
     }
   }, [token])
@@ -184,13 +195,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     }
 
-    // Check weekly meeting limit (for free tier)
-    if (state.planConfig.features.maxMeetingsPerWeek !== undefined) {
-      // TODO: Track meetings per week in backend
-      // For now, just allow
-    }
-
-    // Check monthly minutes limit (for paid tiers)
+    // Check monthly minutes limit
     const remainingMinutes = getRemainingMinutes()
     if (remainingMinutes <= 0) {
       return {
@@ -200,7 +205,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     return { allowed: true }
-  }, [state])
+  }, [state.planConfig, state.minutesLimit, state.minutesUsedThisPeriod])
 
   const getRemainingMinutes = useCallback((): number => {
     return Math.max(0, state.minutesLimit - state.minutesUsedThisPeriod)
@@ -213,49 +218,32 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   const startCheckout = useCallback(
     async (targetPlan: PlanId, interval: "month" | "year") => {
       try {
-        console.log(`[SubscriptionContext] Starting checkout for ${targetPlan}/${interval}`)
+        logger.info('Starting checkout', { targetPlan, interval })
 
-        const headers: HeadersInit = {
-          "Content-Type": "application/json",
-        }
+        const data = await api.post<CheckoutApiResponse>(
+          '/api/subscription/start-checkout',
+          { planId: targetPlan, interval },
+          token
+        )
 
-        // Add auth token if available
-        if (token) {
-          headers.Authorization = `Bearer ${token}`
-        }
-
-        const response = await fetch("http://localhost:3001/api/subscription/start-checkout", {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            planId: targetPlan,
-            interval,
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error(`Checkout creation failed: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-
-        // Open checkout URL in external browser
         if (data.checkoutUrl) {
-          // Use Electron's shell.openExternal
+          // Open checkout URL in external browser
           if (window.electronAPI?.invoke) {
             await window.electronAPI.invoke("shell:openExternal", data.checkoutUrl)
           } else {
             // Fallback for web
             window.open(data.checkoutUrl, "_blank")
           }
-        }
 
-        // Refresh subscription after a delay (user will complete checkout)
-        setTimeout(() => {
-          fetchSubscription()
-        }, 3000)
+          logger.success('Checkout initiated', { targetPlan, interval })
+
+          // Refresh subscription after a delay (user will complete checkout)
+          setTimeout(() => {
+            fetchSubscription()
+          }, 3000)
+        }
       } catch (error) {
-        console.error("[SubscriptionContext] Checkout error:", error)
+        logger.error('Checkout failed', error, { targetPlan, interval })
         throw error
       }
     },
@@ -331,6 +319,6 @@ export const useUsageStats = () => {
     used: minutesUsedThisPeriod,
     limit: minutesLimit,
     remaining: getRemainingMinutes(),
-    percentUsed: (minutesUsedThisPeriod / minutesLimit) * 100,
+    percentUsed: minutesLimit > 0 ? (minutesUsedThisPeriod / minutesLimit) * 100 : 0,
   }
 }
