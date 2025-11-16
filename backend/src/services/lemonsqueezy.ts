@@ -148,7 +148,8 @@ export async function createCheckoutUrl(
 // ============================================================================
 
 /**
- * Verify webhook signature from Lemon Squeezy
+ * Verify webhook signature from Lemon Squeezy using HMAC-SHA256
+ * See: https://docs.lemonsqueezy.com/guides/developer-guide/webhooks#signing-requests
  */
 export function verifyWebhookSignature(
   payload: string,
@@ -159,14 +160,11 @@ export function verifyWebhookSignature(
     return true
   }
 
-  // TODO: Implement actual signature verification
-  // Lemon Squeezy uses HMAC-SHA256
-  // See: https://docs.lemonsqueezy.com/guides/developer-guide/webhooks#signing-requests
-
   const hmac = crypto.createHmac('sha256', LEMON_SQUEEZY_WEBHOOK_SECRET)
   hmac.update(payload)
   const digest = hmac.digest('hex')
 
+  // Use timing-safe comparison to prevent timing attacks
   return crypto.timingSafeEqual(
     Buffer.from(signature),
     Buffer.from(digest)

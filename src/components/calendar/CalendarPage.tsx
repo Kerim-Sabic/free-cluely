@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect } from "react"
 import { motion } from "framer-motion"
+import { useAuth } from "@/contexts/AuthContext"
 
 // ============================================================================
 // TYPES
@@ -36,6 +37,7 @@ interface CalendarConnection {
 // ============================================================================
 
 export const CalendarPage: React.FC = () => {
+  const { token } = useAuth()
   const [connections, setConnections] = useState<CalendarConnection[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -52,11 +54,15 @@ export const CalendarPage: React.FC = () => {
 
   const loadConnections = async () => {
     try {
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      }
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+
       const response = await fetch("http://localhost:3001/api/calendar/connections", {
-        headers: {
-          // TODO: Add JWT auth token
-          "Content-Type": "application/json",
-        },
+        headers,
       })
 
       if (response.ok) {
@@ -71,11 +77,15 @@ export const CalendarPage: React.FC = () => {
   const loadEvents = async () => {
     setIsLoading(true)
     try {
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      }
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+
       const response = await fetch("http://localhost:3001/api/calendar/events?maxResults=20", {
-        headers: {
-          // TODO: Add JWT auth token
-          "Content-Type": "application/json",
-        },
+        headers,
       })
 
       if (response.ok) {
@@ -95,11 +105,15 @@ export const CalendarPage: React.FC = () => {
 
   const handleConnectGoogle = async () => {
     try {
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      }
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+
       const response = await fetch("http://localhost:3001/api/calendar/google/connect", {
-        headers: {
-          // TODO: Add JWT auth token
-          "Content-Type": "application/json",
-        },
+        headers,
       })
 
       if (response.ok) {
@@ -124,14 +138,18 @@ export const CalendarPage: React.FC = () => {
     if (!confirm(`Disconnect ${provider} calendar?`)) return
 
     try {
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      }
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+
       const response = await fetch(
         `http://localhost:3001/api/calendar/connection/${provider}`,
         {
           method: "DELETE",
-          headers: {
-            // TODO: Add JWT auth token
-            "Content-Type": "application/json",
-          },
+          headers,
         }
       )
 

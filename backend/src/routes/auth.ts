@@ -135,8 +135,6 @@ router.post("/signup", signupLimiter, async (req, res, next) => {
       userId: user.id,
       message: "Account created! Please check your email to confirm your account.",
     })
-
-    // TODO: Add rate limiting to prevent abuse (e.g., express-rate-limit)
   } catch (error) {
     next(error)
   }
@@ -194,8 +192,6 @@ router.post("/login", loginLimiter, async (req, res, next) => {
         createdAt: user.createdAt,
       },
     })
-
-    // TODO: Add rate limiting to prevent brute force attacks
   } catch (error) {
     next(error)
   }
@@ -285,8 +281,6 @@ router.post("/resend-confirmation", emailActionLimiter, async (req, res, next) =
       success: true,
       message: "If an account exists with this email, a confirmation link has been sent.",
     })
-
-    // TODO: Add rate limiting to prevent abuse
   } catch (error) {
     next(error)
   }
@@ -332,8 +326,6 @@ router.post("/forgot-password", passwordResetLimiter, async (req, res, next) => 
       message:
         "If an account exists with this email, a password reset link has been sent.",
     })
-
-    // TODO: Add rate limiting to prevent abuse
   } catch (error) {
     next(error)
   }

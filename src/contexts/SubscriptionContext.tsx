@@ -8,6 +8,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react"
 import type { PlanId, PlanConfig } from "../../shared/plans"
 import { PLANS } from "../../shared/plans"
+import { useAuth } from "./AuthContext"
 
 // ============================================================================
 // TYPES
@@ -57,6 +58,8 @@ const SubscriptionContext = createContext<SubscriptionContextType | null>(null)
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const { token } = useAuth()
+
   const [state, setState] = useState<SubscriptionState>({
     planId: "free",
     planConfig: PLANS.free,
@@ -77,13 +80,18 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       setState((prev) => ({ ...prev, isLoading: true, error: null }))
 
       // Call backend API to get subscription data
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      }
+
+      // Add auth token if available
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+
       const response = await fetch("http://localhost:3001/api/subscription/me", {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          // TODO: Add JWT token from auth context
-          // Authorization: `Bearer ${authToken}`,
-        },
+        headers,
       })
 
       if (!response.ok) {
@@ -128,7 +136,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
         error: error instanceof Error ? error.message : "Unknown error",
       }))
     }
-  }, [])
+  }, [token])
 
   // Fetch on mount
   useEffect(() => {
@@ -207,13 +215,18 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         console.log(`[SubscriptionContext] Starting checkout for ${targetPlan}/${interval}`)
 
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        }
+
+        // Add auth token if available
+        if (token) {
+          headers.Authorization = `Bearer ${token}`
+        }
+
         const response = await fetch("http://localhost:3001/api/subscription/start-checkout", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            // TODO: Add JWT token from auth context
-            // Authorization: `Bearer ${authToken}`,
-          },
+          headers,
           body: JSON.stringify({
             planId: targetPlan,
             interval,
@@ -246,7 +259,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
         throw error
       }
     },
-    [fetchSubscription]
+    [token, fetchSubscription]
   )
 
   // ============================================================================
