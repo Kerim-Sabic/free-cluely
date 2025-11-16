@@ -12,6 +12,7 @@ import { MeetingTimer } from "./MeetingTimer"
 import { UsageIndicator } from "../subscription/UsageIndicator"
 import { useSpeechRecognition, TranscriptSegment } from "../../hooks/useSpeechRecognition"
 import { ConfirmDialog } from "../ui/ConfirmDialog"
+import { translationService } from "../../services/translation"
 
 // ============================================================================
 // TYPES
@@ -49,13 +50,45 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
   const [noteText, setNoteText] = useState("")
   const [emailDraft, setEmailDraft] = useState("")
 
-  // Real-time speech recognition
+  // Translation states
+  const [translationEnabled, setTranslationEnabled] = useState(false)
+  const [targetLanguage, setTargetLanguage] = useState("es") // Default to Spanish
+  const [translatedTranscript, setTranslatedTranscript] = useState<TranscriptSegment[]>([])
+  const [availableLanguages] = useState([
+    { code: 'es', name: 'Spanish' },
+    { code: 'fr', name: 'French' },
+    { code: 'de', name: 'German' },
+    { code: 'it', name: 'Italian' },
+    { code: 'pt', name: 'Portuguese' },
+    { code: 'ru', name: 'Russian' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'ko', name: 'Korean' },
+    { code: 'zh', name: 'Chinese' },
+    { code: 'ar', name: 'Arabic' },
+  ])
+
+  // Real-time speech recognition with translation
   const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition({
     continuous: true,
     interimResults: true,
-    onSegment: (segment) => {
+    enableDiarization: true,
+    onSegment: async (segment) => {
       setTranscript((prev) => [...prev, segment])
-      setFullTranscriptText((prev) => prev + " " + segment.text)
+      setFullTranscriptText((prev) => prev + "\n" + `${segment.speaker}: ${segment.text}`)
+
+      // Translate if enabled
+      if (translationEnabled) {
+        try {
+          const result = await translationService.translate(segment.text, targetLanguage, 'auto')
+          const translatedSegment = {
+            ...segment,
+            text: result.translatedText,
+          }
+          setTranslatedTranscript((prev) => [...prev, translatedSegment])
+        } catch (error) {
+          console.error('[MeetingPage] Translation error:', error)
+        }
+      }
     },
     onError: (error) => {
       setTranscriptionError(error)
@@ -419,24 +452,62 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
           <div className="lg:col-span-2 space-y-6">
             {/* Transcript Panel */}
             <div className="p-6 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-purple-500/10">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  Live Transcript
-                </div>
-                <div className="text-xs text-gray-400 font-normal">
-                  {isListening ? (
-                    <span className="flex items-center gap-1 text-green-400">
-                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                      Real-time transcription active
-                    </span>
-                  ) : isSupported ? (
-                    <span className="text-yellow-400">Transcription paused</span>
-                  ) : (
-                    <span className="text-gray-500">Demo mode</span>
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-white flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    Live Transcript
+                  </div>
+                  <div className="text-xs text-gray-400 font-normal">
+                    {isListening ? (
+                      <span className="flex items-center gap-1 text-green-400">
+                        <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                        Real-time transcription active
+                      </span>
+                    ) : isSupported ? (
+                      <span className="text-yellow-400">Transcription paused</span>
+                    ) : (
+                      <span className="text-gray-500">Demo mode</span>
+                    )}
+                  </div>
+                </h2>
+
+                {/* Translation Controls */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    onClick={() => {
+                      setTranslationEnabled(!translationEnabled)
+                      if (!translationEnabled) {
+                        setTranslatedTranscript([])
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      translationEnabled
+                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
+                        : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                    }`}
+                  >
+                    🌐 {translationEnabled ? 'Translation ON' : 'Enable Translation'}
+                  </button>
+
+                  {translationEnabled && (
+                    <select
+                      value={targetLanguage}
+                      onChange={(e) => {
+                        setTargetLanguage(e.target.value)
+                        setTranslatedTranscript([])
+                      }}
+                      className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-xs text-white focus:outline-none focus:border-purple-500"
+                    >
+                      {availableLanguages.map((lang) => (
+                        <option key={lang.code} value={lang.code} className="bg-gray-900">
+                          {lang.name}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 </div>
-              </h2>
+              </div>
               {transcriptionError && (
                 <div className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400">
                   {transcriptionError}
@@ -451,19 +522,27 @@ export const MeetingPage: React.FC<MeetingPageProps> = ({ onEndMeeting }) => {
                     <p>Waiting for audio...</p>
                   </div>
                 ) : (
-                  transcript.map((segment) => (
-                    <div key={segment.id} className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-16 text-xs text-gray-500">
-                        {new Date(segment.timestamp).toLocaleTimeString()}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-purple-400 mb-1">
-                          {segment.speaker}
+                  transcript.map((segment, index) => {
+                    const translatedSegment = translatedTranscript[index]
+                    return (
+                      <div key={segment.id} className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-16 text-xs text-gray-500">
+                          {new Date(segment.timestamp).toLocaleTimeString()}
                         </div>
-                        <div className="text-gray-300">{segment.text}</div>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-purple-400 mb-1">
+                            {segment.speaker}
+                          </div>
+                          <div className="text-gray-300">{segment.text}</div>
+                          {translationEnabled && translatedSegment && (
+                            <div className="mt-2 pl-3 border-l-2 border-blue-500/30 text-sm text-blue-300 italic">
+                              {translatedSegment.text}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </div>

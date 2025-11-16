@@ -312,11 +312,11 @@ router.get('/dashboard-stats', requireAuth, async (req, res) => {
     const todayStart = new Date().setHours(0, 0, 0, 0)
     const weekStart = now - 7 * 24 * 60 * 60 * 1000
 
-    const allMeetings = Meeting.findByUserId(userId)
-    
-    const todayMeetings = allMeetings.filter((m) => m.createdAt >= todayStart).length
-    const weekMeetings = allMeetings.filter((m) => m.createdAt >= weekStart).length
-    const totalDuration = allMeetings.reduce((sum, m) => sum + (m.duration || 0), 0)
+    const allMeetings = MeetingModel.findAllByUserId(userId)
+
+    const todayMeetings = allMeetings.filter((m: any) => m.createdAt >= todayStart).length
+    const weekMeetings = allMeetings.filter((m: any) => m.createdAt >= weekStart).length
+    const totalDuration = allMeetings.reduce((sum: number, m: any) => sum + (m.duration || 0), 0)
     
     // Mock stats for now - integrate with real action items later
     const pendingActions = Math.floor(Math.random() * 10)

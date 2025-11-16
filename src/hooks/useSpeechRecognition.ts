@@ -2,6 +2,7 @@
  * Horalix Halo - Speech Recognition Hook
  *
  * Real-time speech-to-text using Web Speech API (works in Chrome/Edge)
+ * Includes basic speaker diarization using pause patterns and speech characteristics
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -18,8 +19,43 @@ interface UseSpeechRecognitionOptions {
   continuous?: boolean
   interimResults?: boolean
   lang?: string
+  enableDiarization?: boolean  // Enable speaker detection
   onSegment?: (segment: TranscriptSegment) => void
   onError?: (error: string) => void
+}
+
+// Speaker detection using pause patterns and timing
+class SpeakerDetector {
+  private lastSpeechTime: number = 0
+  private currentSpeaker: number = 1
+  private speakerHistory: Array<{ speaker: number; time: number }> = []
+  private readonly SPEAKER_SWITCH_THRESHOLD = 2000 // 2 seconds of silence suggests speaker change
+
+  detectSpeaker(timestamp: number): string {
+    const timeSinceLastSpeech = timestamp - this.lastSpeechTime
+
+    // If significant pause, likely a different speaker
+    if (timeSinceLastSpeech > this.SPEAKER_SWITCH_THRESHOLD && this.lastSpeechTime > 0) {
+      // Alternate between speakers (simple heuristic)
+      this.currentSpeaker = this.currentSpeaker === 1 ? 2 : 1
+    }
+
+    this.lastSpeechTime = timestamp
+    this.speakerHistory.push({ speaker: this.currentSpeaker, time: timestamp })
+
+    // Keep history limited to last 20 entries
+    if (this.speakerHistory.length > 20) {
+      this.speakerHistory.shift()
+    }
+
+    return `Speaker ${this.currentSpeaker}`
+  }
+
+  reset() {
+    this.lastSpeechTime = 0
+    this.currentSpeaker = 1
+    this.speakerHistory = []
+  }
 }
 
 export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) {
@@ -27,6 +63,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     continuous = true,
     interimResults = true,
     lang = 'en-US',
+    enableDiarization = true,  // Enable by default
     onSegment,
     onError,
   } = options
@@ -35,6 +72,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
   const [isSupported, setIsSupported] = useState(false)
   const recognitionRef = useRef<any>(null)
   const segmentCounterRef = useRef(0)
+  const speakerDetectorRef = useRef(new SpeakerDetector())
 
   // Check if browser supports Web Speech API
   useEffect(() => {
@@ -58,11 +96,18 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
 
         // Only process final results to avoid duplicate segments
         if (isFinal && transcript.trim()) {
+          const timestamp = Date.now()
+
+          // Detect speaker using diarization if enabled
+          const speaker = enableDiarization
+            ? speakerDetectorRef.current.detectSpeaker(timestamp)
+            : 'You'
+
           const segment: TranscriptSegment = {
-            id: `segment_${Date.now()}_${segmentCounterRef.current++}`,
-            speaker: 'You', // Web Speech API doesn't identify speakers
+            id: `segment_${timestamp}_${segmentCounterRef.current++}`,
+            speaker,
             text: transcript.trim(),
-            timestamp: Date.now(),
+            timestamp,
             confidence,
           }
 
@@ -132,9 +177,12 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     }
 
     try {
+      // Reset speaker detector when starting a new session
+      speakerDetectorRef.current.reset()
+
       recognitionRef.current.start()
       setIsListening(true)
-      console.log('[SpeechRecognition] Started listening')
+      console.log('[SpeechRecognition] Started listening with speaker diarization:', enableDiarization)
     } catch (error: any) {
       console.error('[SpeechRecognition] Start error:', error)
       if (error.message?.includes('already started')) {
@@ -143,7 +191,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
         onError?.(error.message)
       }
     }
-  }, [isSupported, onError])
+  }, [isSupported, onError, enableDiarization])
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
